@@ -95,9 +95,17 @@ int main()
     char *cmd = token[0];
     char *arg1 = token[1];
 
+    //NOTE: ADD DESCRIPTION
+    short bps;
+
+    //NOTE: ADD DESCRIPTION
+    short spc;
+
+    //NOTE: ADD DESCRIPTION
+    short rsc;
+
     // This variable is used to determine which file system is open. 
     // That way, this program can handle the case where the user tries to close a file system that has not been opened.
-    // NOTE: ENSURE THAT THE ARGUMENT IS LARGE ENOUGH. BE SURE TO RESET!!!
     char open_file_sys[MAX_COMMAND_SIZE];
 
     // This file pointer will be used to determine whether or not the fat32.img file is open.
@@ -108,7 +116,8 @@ int main()
 	free(working_root);
 	return 0;
     }
-
+    
+    // Attempt to open the file system image and, if it is opened, store the name in the 'open_file_sys' string. 
     else if(strcmp(cmd, "open") == 0)
     {
 
@@ -125,11 +134,12 @@ int main()
 	}
     }
 
+    // Attempt to close the file system image. If sucessful, reset the 'open_file_sys' string.
     else if(strcmp(cmd, "close") == 0)
     {
 	if(arg1 == NULL)
 	{
-		printf("No file system image specified. Try 'close <filename>'");
+		printf("No file system image specified. Try 'close <filename>'\n");
 	}
 
 	else if(strcmp(open_file_sys, arg1) == 0)
@@ -145,6 +155,28 @@ int main()
 	}
     }
 
+    else if(strcmp(cmd, "info") == 0)
+    {
+	// If open_file_sys has not been reset, then there is a file system image open.
+        // Therefore, we can perform the 'info' operation.
+	if(strcmp(open_file_sys, "") != 0)
+	{
+		//Skip to BPB_BytsPerSec
+		fseek(fp, 11, SEEK_SET);
+
+		//Read BPB_BytsPerSec
+		fread(&bps, 2, 1, fp);
+		printf("BytesPerSec: %hi\n", bps);
+
+		//Read BPB_SecPerClus
+		fread(&spc, 1, 1, fp);
+		printf("SecPerClus: %hi\n", spc);
+		
+		//Read BPB_RsvdSecCnt
+		fread(&rsc, 2, 1, fp);
+		printf("RsvdSecCnt: %hi\n", rsc);
+	}    
+    }
     // END STUDENT CODE IN MAIN()
     free( working_root );
 
