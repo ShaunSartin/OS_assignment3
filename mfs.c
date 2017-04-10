@@ -152,13 +152,16 @@ int fcmp(char *uname, char *dname)
 void rread(FILE* fp, int rootStart, long arg2, long arg3, int currClusNum, int numOfClusters)
 {
 	int i;
-	char buffer[512];
+	int tmp;
+	char buffer[513];
+	memset(buffer, 0, sizeof(buffer));
 
 	// Recursively go through and determine which cluster contains the initial offset.
 	// I.E. 1st cluster, 2nd cluster, etc. (This is held by numOfClusters, which should always intially be 1)
-	if(arg2 > 512)
+	if(arg2 > 511)
 	{
 		rread(fp, rootStart, arg2 - 512, arg3, currClusNum, numOfClusters + 1);
+		return;
 	}
 
 	// Then go to that particular cluster
@@ -166,19 +169,37 @@ void rread(FILE* fp, int rootStart, long arg2, long arg3, int currClusNum, int n
 	{
 		// Reference the FAT to determine what the cluster number is.
 		// This determines the actual cluster number.
-		// note: the FAT starts at the 163840th byte
+		// note: the FAT starts at the 16384th byte
 		for(int i = 0; i < numOfClusters; i++)
 		{
-			currClusNum = 163840 + (currClusNum * 4);
+			fseek(fp, 16384 + (currClusNum * 4), SEEK_SET);
+			fread(&tmp, 1, 4, fp);
+
+			// 268435455 is the 0F FF FF FF marker that signifies no more clusters, and is therefore not a valid cluster.
+			if (tmp != 268435455)
+			{
+				currClusNum = tmp;
+			}
+			// DEBUG: printf("currClusNum is now: %d\n", currClusNum);
 		}
 
 		// Fseek to the data for that cluster
-		fseek(fp, rootStart + (currClusNum * 512) + arg2, SEEK_SET);
+		fseek(fp, rootStart + (currClusNum * 512) + arg2 - 1024, SEEK_SET);
 		if (arg3 <= 512)
 		{
 			fread(buffer, 1, arg3, fp);
-			printf("%s\n", buffer);
+			buffer[512] = '\0';
+			printf("%s", buffer);
+			memset(buffer, 0, sizeof(buffer));
 			return;
+		}
+		else
+		{
+			fread(buffer, 1, 512, fp);
+			buffer[512] = '\0';
+			printf("%s", buffer);
+			memset(buffer, 0, sizeof(buffer));
+			rread(fp, rootStart, arg2, arg3 - 512, currClusNum, numOfClusters);
 		}
 	}
 }
@@ -408,7 +429,9 @@ int main()
 		//We must null-terminate the string so that extra garbage doesn't print out.
 		fread(volLab, 1, 11, fp);
 		volLab[11] = '\0';
-		if(volLab[0] != ' ')
+		
+		//NOTE: FIX the If-statement
+		if(1 == 1)
 		{
 			printf("VolLab: %s\n", volLab);
 		}
@@ -491,10 +514,19 @@ int main()
 		}
 		if(file_flag == 1)
 		{
-			//NOTE: FIX THIS. What happens if we reach the end of the cluster? multiple clusters?
-			//Check user-input to ensure they enter the correct data-type.
-			fseek(fp, (long int) arg2, SEEK_SET);
-			//rread();
+			if (atol(arg2) + atol(arg3) > dir[i].DIR_FileSize)
+			{
+				printf("Error: File Size Exceeded.\n");
+			}
+			else
+			{
+				//NOTE: FIX THIS. What happens if we reach the end of the cluster? multiple clusters?
+				//Check user-input to ensure they enter the correct data-type.
+				//fseek(fp, (long int) arg2, SEEK_SET);
+				rread(fp, rootStart, atol(arg2), atol(arg3), dir[i].DIR_FirstClusterLow, 1);
+				//reset fp
+			}
+			printf("\n");
 			file_flag = 0;
 		}
 		else
